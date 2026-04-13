@@ -73,6 +73,8 @@ func main() {
 
 	cmds.register("login", handleLogin)
 	cmds.register("register", register)
+	cmds.register("reset", resetUsers)
+	cmds.register("users", getUsers)
 
 	args := os.Args
 	if len(args) < 2 {
@@ -136,4 +138,34 @@ func register(s *state, cmd command) error {
 	fmt.Printf("user info: %v\n", dbUser)
 
 	return nil
+}
+
+func resetUsers(s *state, cmd command) error {
+	err := s.db.ResetUsers(context.Background())
+	if err != nil {
+		return errors.New("error resetting users")
+	}
+
+	fmt.Printf("reset users\n")
+
+	return nil
+}
+
+func getUsers(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return errors.New("error getting user information")
+	}
+
+	for _, u := range users {
+		userName := u.Name
+		if s.cfg.CurrentUserName == userName {
+			userName = userName + " (current)"
+		}
+
+		fmt.Printf("%s\n", userName)
+	}
+
+	return nil
+
 }
