@@ -1,15 +1,23 @@
 package main
 
 import (
+	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/KJBrock/bootdev_gator/internal/config"
+	"github.com/KJBrock/bootdev_gator/internal/database"
+	"github.com/google/uuid"
+
+	_ "github.com/lib/pq"
 )
 
 type state struct {
-	config *config.Config
+	cfg *config.Config
+	db  *database.Queries
 }
 
 type command struct {
@@ -46,8 +54,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	db, err := sql.Open("postgres", configuration.DBUrl)
+	if err != nil {
+		fmt.Printf("error connecting to database\n")
+		os.Exit(1)
+	}
+
+	dbQueries := database.New(db)
+
 	currentState := state{
-		config: &configuration,
+		cfg: &configuration,
+		db:  dbQueries,
 	}
 
 	cmds := commands{
@@ -55,6 +72,7 @@ func main() {
 	}
 
 	cmds.register("login", handleLogin)
+	cmds.register("register", register)
 
 	args := os.Args
 	if len(args) < 2 {
@@ -79,11 +97,43 @@ func handleLogin(s *state, cmd command) error {
 		return errors.New("a username is required")
 	}
 
-	err := s.config.SetUser(cmd.args[0])
+	currentName := cmd.args[0]
+	_, err := s.db.GetUser(context.Background(), currentName)
+	if err != nil {
+		return errors.New("user does not exist")
+	}
+
+	err = s.cfg.SetUser(currentName)
 	if err != nil {
 		return errors.New("error setting user name")
 	}
 
 	fmt.Printf("user has been set to %s\n", cmd.args[0])
+	return nil
+}
+
+func register(s *state, cmd command) error {
+	if len(cmd.args) == 0 {
+		return errors.New("a name is required")
+	}
+
+	currentName := cmd.args[0]
+	t := time.Now()
+	dbUser, err := s.db.CreateUser(context.Background(),
+		database.CreateUserParams{
+			ID:        uuid.New(),
+			CreatedAt: t,
+			UpdatedAt: t,
+			Name:      currentName,
+		})
+	if err != nil {
+		return errors.New("error creating database user")
+	}
+
+	s.cfg.SetUser(currentName)
+
+	fmt.Printf("created db user %s\n", currentName)
+	fmt.Printf("user info: %v\n", dbUser)
+
 	return nil
 }
