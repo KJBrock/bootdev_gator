@@ -80,6 +80,8 @@ func main() {
 	cmds.register("agg", getFeed)
 	cmds.register("addfeed", addFeed)
 	cmds.register("feeds", getFeeds)
+	cmds.register("follow", followFeed)
+	cmds.register("following", followingFeeds)
 
 	args := os.Args
 	if len(args) < 2 {
@@ -215,7 +217,17 @@ func addFeed(s *state, cmd command) error {
 		return err
 	}
 
+	_, err = s.db.CreateFeedFollow(context.Background(),
+		database.CreateFeedFollowParams{
+			ID:        uuid.New(),
+			CreatedAt: t,
+			UpdatedAt: t,
+			FeedID:    feed.ID,
+			UserID:    user.ID,
+		})
+
 	fmt.Printf("%v\n", feed)
+
 	return nil
 }
 
@@ -236,4 +248,59 @@ func getFeeds(s *state, _ command) error {
 
 	return nil
 
+}
+
+func followFeed(s *state, cmd command) error {
+	if len(cmd.args) != 1 {
+		return errors.New("specify a feed URL")
+	}
+
+	f, err := s.db.GetFeedByUrl(context.Background(), cmd.args[0])
+	if err != nil {
+		return errors.New("error finding feed by URL")
+	}
+
+	u, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return errors.New("error finding current user")
+	}
+
+	t := time.Now()
+	ff, err := s.db.CreateFeedFollow(context.Background(),
+		database.CreateFeedFollowParams{
+			ID:        uuid.New(),
+			CreatedAt: t,
+			UpdatedAt: t,
+			FeedID:    f.ID,
+			UserID:    u.ID,
+		})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Feed: %s, Current User: %s\n", ff.Feedname, ff.Username)
+
+	return nil
+}
+
+func followingFeeds(s *state, cmd command) error {
+	if len(cmd.args) != 0 {
+		return errors.New("no arguments needed")
+	}
+
+	u, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return errors.New("error finding current user")
+	}
+
+	ff, err := s.db.GetFeedFollowsForUser(context.Background(), u.ID)
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range ff {
+		fmt.Printf("%s\n", feed.Feedname)
+	}
+
+	return nil
 }
