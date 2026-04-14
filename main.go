@@ -78,6 +78,8 @@ func main() {
 	cmds.register("reset", resetUsers)
 	cmds.register("users", getUsers)
 	cmds.register("agg", getFeed)
+	cmds.register("addfeed", addFeed)
+	cmds.register("feeds", getFeeds)
 
 	args := os.Args
 	if len(args) < 2 {
@@ -146,6 +148,7 @@ func register(s *state, cmd command) error {
 func resetUsers(s *state, cmd command) error {
 	err := s.db.ResetUsers(context.Background())
 	if err != nil {
+		fmt.Printf("Error: %v\n", err)
 		return errors.New("error resetting users")
 	}
 
@@ -183,4 +186,54 @@ func getFeed(s *state, cmd command) error {
 	fmt.Printf("%v\n", rssFeed)
 
 	return nil
+}
+
+func addFeed(s *state, cmd command) error {
+	if len(cmd.args) < 2 {
+		return errors.New("a name and URL are required")
+	}
+
+	user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+	if err != nil {
+		return errors.New("error getting user information")
+	}
+
+	feedName := cmd.args[0]
+	feedURL := cmd.args[1]
+
+	t := time.Now()
+	feed, err := s.db.CreateFeed(context.Background(),
+		database.CreateFeedParams{
+			ID:        uuid.New(),
+			CreatedAt: t,
+			UpdatedAt: t,
+			Name:      feedName,
+			Url:       feedURL,
+			UserID:    user.ID,
+		})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%v\n", feed)
+	return nil
+}
+
+func getFeeds(s *state, _ command) error {
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		return errors.New("error getting user information")
+	}
+
+	for _, feed := range feeds {
+		user, userErr := s.db.GetUserByID(context.Background(), feed.UserID)
+		if userErr != nil {
+			return userErr
+		}
+
+		fmt.Printf("Name: %s, URL: %s, Created By: %s\n", feed.Name, feed.Url, user.Name)
+	}
+
+	return nil
+
 }
