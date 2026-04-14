@@ -15,6 +15,8 @@ import (
 	_ "github.com/lib/pq"
 )
 
+const testFeed = "https://www.wagslane.dev/index.xml"
+
 type state struct {
 	cfg *config.Config
 	db  *database.Queries
@@ -75,6 +77,7 @@ func main() {
 	cmds.register("register", register)
 	cmds.register("reset", resetUsers)
 	cmds.register("users", getUsers)
+	cmds.register("agg", getFeed)
 
 	args := os.Args
 	if len(args) < 2 {
@@ -168,4 +171,16 @@ func getUsers(s *state, cmd command) error {
 
 	return nil
 
+}
+
+func getFeed(s *state, cmd command) error {
+
+	rssFeed, err := fetchFeed(context.Background(), testFeed)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%v\n", rssFeed)
+
+	return nil
 }
