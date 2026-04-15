@@ -8,3 +8,4 @@
 # Go-specific
 
 
+sql/schema/migrate.sh

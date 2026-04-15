@@ -20,3 +20,7 @@ WITH their_feeds AS (
         FROM their_feeds
             JOIN users ON user_id = users.id
             JOIN feeds ON their_feeds.feed_id = feeds.id;
+
+-- name: UnfollowFeed :exec
+DELETE FROM feed_follows
+WHERE (feed_id = $1 AND user_id = $2);
